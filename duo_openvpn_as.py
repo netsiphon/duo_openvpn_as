@@ -22,6 +22,11 @@ PROXY_PORT = 8080
 SKIP_DUO_ON_VPN_AUTH = False
 # Set to True if value of "vpn.server.google_auth.enable" is True
 GLOBAL_GOOGLE_AUTH = False
+# Variables for LDAP checks if using LDAP authentication
+# Allow for inclusion and exclusion without passing
+# users to Duo.
+LDAP_GROUP_INCLUDE=''
+LDAP_GROUP_EXCLUDE=''
 
 # ------------------------------------------------------------------
 
@@ -492,6 +497,35 @@ class CertValidatingHTTPSConnection(httplib.HTTPConnection):
       hostname = cert_validation_host.split(':', 0)[0]
       if not self._ValidateCertificateHostname(cert, hostname):
         raise InvalidCertificateException(hostname, cert, 'hostname mismatch')
+     
+### The following code was adapted from:
+### http://swupdate.openvpn.net/scripts/post_auth_ldap_autologin_dbsave.py
+### No License noted in original source.
+
+import ldap
+
+# regex to parse the first component of an LDAP group DN
+re_group = re.compile(r"^CN=([^,]+)")
+
+# alternative for some LDAP servers:
+# re_group = re.compile(r"^cn=([^,]+)")
+
+# Please note that if you're having problems with the group simply not being recognized,
+# you may need to adjust the regex above to read cn= (lowercase) instead of uppercase.
+# The reason why is because some LDAP servers like OpenLDAP can be configured to use
+# lowercase instead of uppercase. We've tried to use a better regex here before to
+# detect the difference automatically but that caused issues with some more exotic LDAP
+# software, so we prefer to leave this note here for people encountering issues.
+# Also note that perhaps Cn= or cN= is also possible, though very rare and unlikely.
+
+def ldap_groups_parse(res):
+    ret = set()
+    for g in res[0][1]['memberOf']:
+        m = re.match(re_group, g)
+        if m:
+            ret.add(m.groups()[0])
+    return ret
+
 
 ### duo_openvpn_as.py integration code:
 
@@ -614,6 +648,21 @@ def post_auth_cr(authcred, attributes, authret, info, crstate):
     if GLOBAL_GOOGLE_AUTH:
         if ('prop_google_auth' not in authret['proplist']):
             return authret
+    
+    ### The following code was adapted from:
+    ### http://swupdate.openvpn.net/scripts/post_auth_ldap_autologin_dbsave.py
+    ### No License noted in original source.
+    # this code only operates when the Access Server auth method is set to LDAP
+    if info.get('auth_method') == 'ldap':
+        # get the user's distinguished name
+        user_dn = info['user_dn']
+        # use our given LDAP context to perform queries
+        with info['ldap_context'] as l:
+            ldap_groups = ldap_groups_parse(l.search_ext_s(user_dn, ldap.SCOPE_SUBTREE, attrlist=["memberOf"]))
+            if LDAP_GROUP_EXCLUDE !='' and LDAP_GROUP_EXCLUDE in ldap_groups:
+                return authret
+            if LDAP_GROUP_INCLUDE !='' and LDAP_GROUP_INCLUDE not in ldap_groups:
+                return authret
 
     # Use authret 'user' rather than authcred 'username' to prevent case
     # sensitivity issues with external auth providers like AD/LDAP
