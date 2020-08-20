@@ -503,10 +503,7 @@ class CertValidatingHTTPSConnection(httplib.HTTPConnection):
 ### No License noted in original source.
 
 # regex to parse the first component of an LDAP group DN
-re_group = re.compile(r"^CN=([^,]+)")
-
-# alternative for some LDAP servers:
-# re_group = re.compile(r"^cn=([^,]+)")
+re_group = re.compile(r"^CN=([^,]+)", re.IGNORECASE)
 
 # Please note that if you're having problems with the group simply not being recognized,
 # you may need to adjust the regex above to read cn= (lowercase) instead of uppercase.
