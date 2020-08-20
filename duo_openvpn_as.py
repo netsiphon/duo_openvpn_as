@@ -524,6 +524,13 @@ def ldap_groups_parse(res):
             ret.add(m.groups()[0])
     return ret
 
+def ldap_groups_parse_old(res): 
+    ret = set()
+    for g in res[0][1]['memberOf']:
+        m = re.match(re_group, g)
+        if m:
+            ret.add(m.groups()[0])
+    return ret 
 
 ### duo_openvpn_as.py integration code:
 
@@ -658,7 +665,7 @@ def post_auth_cr(authcred, attributes, authret, info, crstate):
         with info['ldap_context'] as l:
             if hasattr(l, 'search_ext_s'):
                 import ldap
-                ldap_groups = ldap_groups_parse(l.search_ext_s(user_dn, ldap.SCOPE_SUBTREE, attrlist=["memberOf"]))
+                ldap_groups = ldap_groups_parse_old(l.search_ext_s(user_dn, ldap.SCOPE_SUBTREE, attrlist=["memberOf"]))
             else:
                 import ldap3
                 search_base = info['search_base']
