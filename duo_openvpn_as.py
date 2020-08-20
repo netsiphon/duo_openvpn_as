@@ -502,8 +502,6 @@ class CertValidatingHTTPSConnection(httplib.HTTPConnection):
 ### http://swupdate.openvpn.net/scripts/post_auth_ldap_autologin_dbsave.py
 ### No License noted in original source.
 
-import ldap
-
 # regex to parse the first component of an LDAP group DN
 re_group = re.compile(r"^CN=([^,]+)")
 
@@ -658,7 +656,18 @@ def post_auth_cr(authcred, attributes, authret, info, crstate):
         user_dn = info['user_dn']
         # use our given LDAP context to perform queries
         with info['ldap_context'] as l:
-            ldap_groups = ldap_groups_parse(l.search_ext_s(user_dn, ldap.SCOPE_SUBTREE, attrlist=["memberOf"]))
+            if hasattr(l, 'search_ext_s')
+                import ldap
+                ldap_groups = ldap_groups_parse(l.search_ext_s(user_dn, ldap.SCOPE_SUBTREE, attrlist=["memberOf"]))
+            else:
+                 import ldap3
+                 search_base = info['search_base']
+                 uname_attr = info['ldap_context'].authldap.parms['uname_attr']
+                 search_filter = '(%s=%s)' % (uname_attr, user_dn)
+                 attribute = 'memberOf'
+                 if l.search(search_base, search_filter, attributes=[attribute]):
+                     ldap_groups = getattr(l.entries[0], attribute).value
+
             if LDAP_GROUP_EXCLUDE !='' and LDAP_GROUP_EXCLUDE in ldap_groups:
                 return authret
             if LDAP_GROUP_INCLUDE !='' and LDAP_GROUP_INCLUDE not in ldap_groups:
