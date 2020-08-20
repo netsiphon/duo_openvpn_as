@@ -653,11 +653,8 @@ def post_auth_cr(authcred, attributes, authret, info, crstate):
         # use our given LDAP context to perform queries
         with info['ldap_context'] as l:
             if hasattr(l, 'search_ext_s'):
-                ldap_groups = l.search_ext_s(user_dn, ldap.SCOPE_SUBTREE, attrlist=["memberOf"])[0][1]['memberOf']
-                if ldap_groups:
-                    ldap_groups = ldap_groups_parse(ldap_groups)
-                else:
-                    ldap_groups = {}
+                import ldap
+                ldap_groups = l.search_ext_s(user_dn, ldap.SCOPE_SUBTREE, attrlist=["memberOf"])[0][1]['memberOf']   
             else:
                 import ldap3
                 search_base = info['search_base']
@@ -668,11 +665,12 @@ def post_auth_cr(authcred, attributes, authret, info, crstate):
                     ldap_groups = getattr(l.entries[0], attribute).value
                     if not isinstance(ldap_groups, (list, tuple)):
                         ldap_groups = {ldap_groups}
-                    if ldap_groups:
-                        ldap_groups = ldap_groups_parse(ldap_groups)
-                else:
-                    ldap_groups = {}
-
+                        
+            if ldap_groups:
+                ldap_groups = ldap_groups_parse(ldap_groups) 
+            else:
+                ldap_groups = {}
+                
             if LDAP_GROUP_EXCLUDE !='' and LDAP_GROUP_EXCLUDE in ldap_groups:
                 return authret
             if LDAP_GROUP_INCLUDE !='' and LDAP_GROUP_INCLUDE not in ldap_groups:
