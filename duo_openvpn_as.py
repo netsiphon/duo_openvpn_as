@@ -518,7 +518,7 @@ re_group = re.compile(r"^CN=([^,]+)")
 
 def ldap_groups_parse(res):
     ret = set()
-    for g in res[0][1]['memberOf']:
+    for g in res:
         m = re.match(re_group, g)
         if m:
             ret.add(m.groups()[0])
@@ -656,17 +656,21 @@ def post_auth_cr(authcred, attributes, authret, info, crstate):
         user_dn = info['user_dn']
         # use our given LDAP context to perform queries
         with info['ldap_context'] as l:
-            if hasattr(l, 'search_ext_s')
+            if hasattr(l, 'search_ext_s'):
                 import ldap
                 ldap_groups = ldap_groups_parse(l.search_ext_s(user_dn, ldap.SCOPE_SUBTREE, attrlist=["memberOf"]))
             else:
-                 import ldap3
-                 search_base = info['search_base']
-                 uname_attr = info['ldap_context'].authldap.parms['uname_attr']
-                 search_filter = '(%s=%s)' % (uname_attr, user_dn)
-                 attribute = 'memberOf'
-                 if l.search(search_base, search_filter, attributes=[attribute]):
-                     ldap_groups = getattr(l.entries[0], attribute).value
+                import ldap3
+                search_base = info['search_base']
+                uname_attr = l.authldap.parms['uname_attr']
+                search_filter = '(%s=%s)' % (uname_attr, user_dn)
+                attribute = 'memberOf'
+                if l.search(search_base, search_filter, attributes=[attribute]):
+                    ldap_groups = getattr(l.entries[0], attribute).value
+                    if not isinstance(ldap_groups, (list, tuple)):
+                        ldap_groups = {ldap_groups}
+                    if ldap_groups:
+                        ldap_groups = ldap_groups_parse(ldap_groups)
 
             if LDAP_GROUP_EXCLUDE !='' and LDAP_GROUP_EXCLUDE in ldap_groups:
                 return authret
