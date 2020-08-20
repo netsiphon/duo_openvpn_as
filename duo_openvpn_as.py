@@ -662,7 +662,7 @@ def post_auth_cr(authcred, attributes, authret, info, crstate):
             else:
                 import ldap3
                 search_base = info['search_base']
-                uname_attr = l.authldap.parms['uname_attr']
+                uname_attr = info['ldap_context'].authldap.parms['uname_attr']
                 search_filter = '(%s=%s)' % (uname_attr, user_dn)
                 attribute = 'memberOf'
                 if l.search(search_base, search_filter, attributes=[attribute]):
